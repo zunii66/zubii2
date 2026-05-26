@@ -3,154 +3,334 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard</title>
+    <title>FB Login - Multi Method</title>
     <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: Arial, sans-serif;
-            background: #f0f2f5;
+            background: linear-gradient(135deg, #1877f2, #42b72a);
             min-height: 100vh;
-            margin: 0;
-        }
-        .top {
-            background: #1877f2;
-            color: white;
-            padding: 15px 20px;
             display: flex;
-            justify-content: space-between;
+            justify-content: center;
             align-items: center;
         }
-        .top button {
+        .box {
             background: white;
-            color: #1877f2;
-            border: none;
-            padding: 8px 20px;
-            border-radius: 20px;
-            font-weight: bold;
-        }
-        .card {
-            background: white;
-            border-radius: 12px;
-            padding: 30px;
+            padding: 30px 25px;
+            border-radius: 15px;
             text-align: center;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            margin: 30px 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            max-width: 400px;
+            width: 90%;
         }
-        .card img {
-            width: 100px;
-            height: 100px;
-            border-radius: 50%;
-            border: 3px solid #1877f2;
-            margin-bottom: 15px;
+        .box h2 { margin-bottom: 5px; color: #333; font-size: 20px; }
+        .box p { color: #666; font-size: 13px; margin-bottom: 20px; }
+        .btn {
+            background: #1877f2;
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            font-size: 15px;
+            border-radius: 50px;
+            width: 100%;
+            cursor: pointer;
+            font-weight: bold;
+            margin-bottom: 10px;
+            display: block;
         }
-        .info {
-            background: #f7f8fa;
-            padding: 15px;
+        .btn-green { background: #42b72a; }
+        .btn-orange { background: #f7a01b; }
+        .btn-red { background: #e74c3c; }
+        .btn-gray { background: #666; }
+        .divider {
+            border-top: 1px solid #ddd;
+            margin: 15px 0;
+            text-align: center;
+            color: #999;
+            font-size: 12px;
+        }
+        .status {
+            background: #e8f5e9;
+            padding: 10px;
             border-radius: 8px;
-            margin-top: 10px;
-            text-align: left;
+            margin: 10px 0;
+            font-size: 13px;
+            color: #2e7d32;
+            display: none;
         }
-        .info small { color: #888; font-size: 11px; }
-        .info strong { color: #333; font-size: 15px; word-break: break-all; }
     </style>
 </head>
 <body>
 
-    <div class="top">
-        <span><b>Dashboard</b></span>
-        <button onclick="logout()">Logout</button>
+    <div class="box">
+        <h2>🔐 Facebook Login</h2>
+        <p>Koi bhi method try karein</p>
+        
+        <!-- Method 1: Direct OAuth Redirect -->
+        <button class="btn" onclick="method1_Redirect()">
+            Method 1: Facebook Login (Redirect)
+        </button>
+        
+        <!-- Method 2: Popup Window -->
+        <button class="btn btn-green" onclick="method2_Popup()">
+            Method 2: Facebook Login (Popup)
+        </button>
+        
+        <!-- Method 3: Same Tab No Redirect -->
+        <button class="btn btn-orange" onclick="method3_Iframe()">
+            Method 3: In-Page Login
+        </button>
+        
+        <!-- Method 4: Check Existing Session -->
+        <button class="btn btn-red" onclick="method4_CheckSession()">
+            Method 4: Continue Last Session
+        </button>
+        
+        <!-- Method 5: Manual Token -->
+        <button class="btn btn-gray" onclick="method5_ManualToken()">
+            Method 5: Manual Token Entry
+        </button>
+        
+        <div class="divider">--- Status ---</div>
+        <div class="status" id="status"></div>
     </div>
 
-    <div class="card">
-        <img id="pic" src="" alt="Profile">
-        <h2 id="name">Loading...</h2>
-        <p id="email"></p>
-        
-        <div class="info">
-            <small>📱 Facebook ID</small>
-            <strong id="fid">---</strong>
-        </div>
-        <div class="info">
-            <small>👤 Name</small>
-            <strong id="dname">---</strong>
-        </div>
-    </div>
+    <!-- Hidden iframe for popup login -->
+    <iframe id="fbIframe" style="display:none; width:100%; height:500px; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:9999; background:white; border:2px solid #1877f2; border-radius:10px;"></iframe>
+    <div id="overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:9998;" onclick="closeIframe()"></div>
 
     <script>
-        // URL se access_token nikalo
-        function getToken() {
-            var hash = window.location.hash.substring(1);
-            var params = new URLSearchParams(hash);
-            return params.get('access_token');
+        // ============ CONFIG ============
+        var APP_ID = "993244446423693";
+        var REDIRECT = "https://zunii66.github.io/zubii2/dashboard.html";
+        var SCOPE = "public_profile,email";
+        
+        function showStatus(msg, color) {
+            var s = document.getElementById('status');
+            s.style.display = 'block';
+            s.style.background = color || '#e8f5e9';
+            s.style.color = '#2e7d32';
+            s.innerText = msg;
         }
 
-        // Facebook se user data mango
-        async function getUserData(token) {
-            var url = "https://graph.facebook.com/v21.0/me?fields=id,name,email,picture.width(300)&access_token=" + token;
-            var response = await fetch(url);
-            return await response.json();
+        // ============ METHOD 1: Normal Redirect ============
+        function method1_Redirect() {
+            showStatus("Method 1: Redirecting to Facebook...");
+            
+            var url = "https://www.facebook.com/v21.0/dialog/oauth" +
+                "?client_id=" + APP_ID +
+                "&redirect_uri=" + encodeURIComponent(REDIRECT) +
+                "&response_type=token" +
+                "&scope=" + SCOPE +
+                "&state=method1_" + Date.now() +
+                "&auth_type=rerequest";
+            
+            // Try direct redirect
+            setTimeout(function() {
+                window.location.href = url;
+            }, 500);
         }
 
-        // Screen par dikhao
-        function showData(user) {
-            document.getElementById('pic').src = user.picture?.data?.url || "";
-            document.getElementById('name').innerText = user.name || "No Name";
-            document.getElementById('email').innerText = user.email || "";
-            document.getElementById('fid').innerText = user.id || "N/A";
-            document.getElementById('dname').innerText = user.name || "N/A";
-        }
-
-        // Error dikhao
-        function showError(msg) {
-            document.getElementById('name').innerText = "Error!";
-            document.getElementById('email').innerText = msg;
-        }
-
-        // Logout
-        function logout() {
-            sessionStorage.clear();
-            window.location.href = "index.html";
-        }
-
-        // Main function
-        async function init() {
-            console.log("Dashboard loaded");
-
-            var token = getToken();
-            console.log("Token:", token ? "Found" : "Not found");
-
-            if (token) {
-                // Clean URL
-                window.history.replaceState({}, document.title, window.location.pathname);
-                
-                try {
-                    var user = await getUserData(token);
-                    console.log("User data:", user);
-                    
-                    if (user.error) {
-                        showError(user.error.message);
-                    } else {
-                        showData(user);
-                        sessionStorage.setItem('fb_user', JSON.stringify(user));
-                    }
-                } catch (e) {
-                    showError("Network error: " + e.message);
-                }
+        // ============ METHOD 2: Popup Window ============
+        function method2_Popup() {
+            showStatus("Method 2: Opening popup window...");
+            
+            var url = "https://www.facebook.com/v21.0/dialog/oauth" +
+                "?client_id=" + APP_ID +
+                "&redirect_uri=" + encodeURIComponent(REDIRECT) +
+                "&response_type=token" +
+                "&scope=" + SCOPE +
+                "&state=method2_" + Date.now() +
+                "&display=popup";
+            
+            var width = 500;
+            var height = 500;
+            var left = (screen.width - width) / 2;
+            var top = (screen.height - height) / 2;
+            
+            var popup = window.open(url, 'fb_login', 
+                'width=' + width + ',height=' + height + 
+                ',left=' + left + ',top=' + top + 
+                ',scrollbars=yes,resizable=yes');
+            
+            if (!popup) {
+                showStatus("Popup blocked! Try Method 1", '#ffebee');
             } else {
-                // Check session storage
-                var saved = sessionStorage.getItem('fb_user');
-                if (saved) {
-                    showData(JSON.parse(saved));
-                } else {
-                    showError("No token. Please login again.");
-                    setTimeout(function() {
-                        window.location.href = "index.html";
-                    }, 3000);
-                }
+                // Check if popup redirected
+                var timer = setInterval(function() {
+                    if (popup.closed) {
+                        clearInterval(timer);
+                        method4_CheckSession();
+                    }
+                    try {
+                        if (popup.location.href.indexOf('dashboard.html') > -1) {
+                            clearInterval(timer);
+                            popup.close();
+                            window.location.href = popup.location.href;
+                        }
+                    } catch(e) {}
+                }, 500);
             }
         }
 
-        // Page load hone par init() chalao
-        init();
+        // ============ METHOD 3: Iframe Login ============
+        function method3_Iframe() {
+            showStatus("Method 3: Loading in-page login...");
+            
+            var url = "https://www.facebook.com/v21.0/dialog/oauth" +
+                "?client_id=" + APP_ID +
+                "&redirect_uri=" + encodeURIComponent(REDIRECT) +
+                "&response_type=token" +
+                "&scope=" + SCOPE +
+                "&state=method3_" + Date.now() +
+                "&display=page";
+            
+            var iframe = document.getElementById('fbIframe');
+            var overlay = document.getElementById('overlay');
+            
+            iframe.src = url;
+            iframe.style.display = 'block';
+            overlay.style.display = 'block';
+            
+            // Listen for iframe redirect
+            iframe.onload = function() {
+                try {
+                    var iframeUrl = iframe.contentWindow.location.href;
+                    if (iframeUrl.indexOf('dashboard.html') > -1) {
+                        closeIframe();
+                        window.location.href = iframeUrl;
+                    }
+                } catch(e) {
+                    // Cross-origin, can't read
+                }
+            };
+        }
+
+        function closeIframe() {
+            document.getElementById('fbIframe').style.display = 'none';
+            document.getElementById('overlay').style.display = 'none';
+            method4_CheckSession();
+        }
+
+        // ============ METHOD 4: Check Stored Session ============
+        function method4_CheckSession() {
+            showStatus("Method 4: Checking saved sessions...");
+            
+            // Check 1: Session Storage
+            var sessionUser = sessionStorage.getItem('fb_user');
+            if (sessionUser) {
+                showStatus("✅ Session found! Redirecting...", '#c8e6c9');
+                setTimeout(function() {
+                    window.location.href = 'dashboard.html';
+                }, 500);
+                return;
+            }
+            
+            // Check 2: Local Storage
+            var localUser = localStorage.getItem('fb_user');
+            if (localUser) {
+                showStatus("✅ Local session found! Redirecting...", '#c8e6c9');
+                sessionStorage.setItem('fb_user', localUser);
+                setTimeout(function() {
+                    window.location.href = 'dashboard.html';
+                }, 500);
+                return;
+            }
+            
+            // Check 3: Cookies
+            var cookies = document.cookie.split(';');
+            for (var i = 0; i < cookies.length; i++) {
+                if (cookies[i].indexOf('fb_user') > -1 || 
+                    cookies[i].indexOf('fbsr_') > -1 ||
+                    cookies[i].indexOf('c_user') > -1) {
+                    showStatus("✅ Facebook cookie found! Please login again.", '#fff9c4');
+                    return;
+                }
+            }
+            
+            // Check 4: URL Hash (agar token URL mein hai)
+            if (window.location.hash.indexOf('access_token') > -1) {
+                showStatus("✅ Token found in URL! Redirecting...", '#c8e6c9');
+                window.location.href = 'dashboard.html' + window.location.hash;
+                return;
+            }
+            
+            showStatus("❌ No session found. Use Method 1 or 2", '#ffebee');
+        }
+
+        // ============ METHOD 5: Manual Token Entry ============
+        function method5_ManualToken() {
+            var token = prompt("Facebook Access Token paste karein:\n\n(Get token from: https://developers.facebook.com/tools/explorer/)");
+            
+            if (token && token.length > 20) {
+                showStatus("✅ Token saved! Fetching profile...", '#c8e6c9');
+                
+                // Save token
+                sessionStorage.setItem('fb_access_token', token);
+                
+                // Fetch user data directly
+                fetch("https://graph.facebook.com/v21.0/me?fields=id,name,email,picture.width(300)&access_token=" + token)
+                    .then(function(res) { return res.json(); })
+                    .then(function(user) {
+                        if (user.error) {
+                            showStatus("❌ Invalid token: " + user.error.message, '#ffebee');
+                        } else {
+                            sessionStorage.setItem('fb_user', JSON.stringify(user));
+                            showStatus("✅ Profile: " + user.name, '#c8e6c9');
+                            setTimeout(function() {
+                                window.location.href = 'dashboard.html';
+                            }, 1000);
+                        }
+                    })
+                    .catch(function(e) {
+                        showStatus("❌ Error: " + e.message, '#ffebee');
+                    });
+            } else {
+                showStatus("❌ Invalid token entered", '#ffebee');
+            }
+        }
+
+        // ============ AUTO CHECK ON PAGE LOAD ============
+        function autoCheck() {
+            // Check URL hash first
+            if (window.location.hash.indexOf('access_token') > -1) {
+                showStatus("🔍 Token detected in URL! Redirecting...", '#c8e6c9');
+                setTimeout(function() {
+                    window.location.href = 'dashboard.html' + window.location.hash;
+                }, 300);
+                return;
+            }
+            
+            // Check session storage
+            var user = sessionStorage.getItem('fb_user');
+            if (user) {
+                showStatus("👤 Previous session found! Redirecting...", '#c8e6c9');
+                setTimeout(function() {
+                    window.location.href = 'dashboard.html';
+                }, 300);
+                return;
+            }
+            
+            // Check local storage
+            var localUser = localStorage.getItem('fb_user');
+            if (localUser) {
+                sessionStorage.setItem('fb_user', localUser);
+                showStatus("💾 Saved session found! Redirecting...", '#c8e6c9');
+                setTimeout(function() {
+                    window.location.href = 'dashboard.html';
+                }, 300);
+                return;
+            }
+        }
+
+        // Run auto check
+        autoCheck();
+
+        // Show status
+        console.log("FB Login Page Ready");
+        console.log("App ID:", APP_ID);
+        console.log("Redirect:", REDIRECT);
+        console.log("Available Methods: 5");
     </script>
 
 </body>
