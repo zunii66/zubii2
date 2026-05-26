@@ -1,1 +1,69 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FB Login</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #1877f2, #42b72a);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .box {
+            background: white;
+            padding: 40px 30px;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            max-width: 380px;
+            width: 90%;
+        }
+        .box h2 { margin-bottom: 8px; color: #333; font-size: 22px; }
+        .box p { color: #666; font-size: 14px; margin-bottom: 25px; }
+        .btn {
+            background: #1877f2;
+            color: white;
+            border: none;
+            padding: 14px 30px;
+            font-size: 17px;
+            border-radius: 50px;
+            width: 100%;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .btn:active { transform: scale(0.98); }
+    </style>
+</head>
+<body>
+
+    <div class="box">
+        <h2>🔐 Facebook Login</h2>
+        <p>Login karein apne Facebook account se</p>
+        <button class="btn" onclick="login()">Login with Facebook</button>
+    </div>
+
+    <script>
+        const APP_ID = "993244446423693";
+        const GITHUB_USER = "zunii66";
+        const REPO_NAME = "zubii2";
+        const REDIRECT = "https://" + GITHUB_USER + ".github.io/" + REPO_NAME + "/dashboard.html";
+
+        function login() {
+            const url = "https://www.facebook.com/v21.0/dialog/oauth?" +
+                "client_id=" + APP_ID +
+                "&redirect_uri=" + encodeURIComponent(REDIRECT) +
+                "&response_type=token" +
+                "&scope=public_profile,email";
+            
+            window.location.href = url;
+        }
+    </script>
+
+</body>
+</html>
